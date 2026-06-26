@@ -1,0 +1,45 @@
+id: mezzanine-cms-detect
+
+info:
+  name: Mezzanine CMS - Detect
+  author: Chirag Mistry
+  severity: info
+  description: |
+    Detects instances of Mezzanine CMS based on unique fingerprints and identifiers.
+  metadata:
+    shodan-query:
+      - http.component:"Mezzanine"
+      - http.component:"mezzanine"
+      - cpe:"cpe:2.3:a:mezzanine:mezzanine"
+  tags: detect,mezzanine,cms,tech
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    payloads:
+      paths:
+        - "/"
+        - "/admin/login/"
+        - "/admin/dashboard/"
+        - "/static/js/mezzanine.js"
+        - "/settings.py"
+        - "/mezzanine/"
+
+    stop-at-first-match: true
+    matchers-condition: or
+    matchers:
+      - type: word
+        words:
+          - "powered by Mezzanine"
+          - "Welcome to Mezzanine"
+          - "Mezzanine version"
+        condition: or
+        case-insensitive: true
+
+      - type: regex
+        regex:
+          - "(?i)mezzanine\\s+(v[0-9.]+)"
+          - "(?i)<title>Mezzanine CMS"
+# digest: 4b0a00483046022100eee94ebc588313eb077f1e436f6a2cdf130fe6e5db241a0e2ec204bf563e78ac022100c43cbc8d85ded4b1c96ef038d400ca1ff47b46c688f1d38fb58fa7db431d4f4c:922c64590222798bb761d5b6d8e72950

@@ -5,9 +5,8 @@
 /dddd_*
 /dddd*.exe
 
-# 大体积模板目录（请单独分发，勿入库）
+# 根目录工作副本，体积过大且未编译进二进制，勿入库
 /nuclei-templates/
-/common/config/pocs/nuclei-templates/
 
 # 运行时产物
 /result.txt
