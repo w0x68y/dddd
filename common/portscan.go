@@ -85,7 +85,9 @@ func PortScanTCP(IPs []string, Ports string, NoPorts string, timeout int) []stri
 	}
 	Addrs := make(chan Addr, structs.GlobalConfig.TCPPortScanThreads)
 	results := make(chan string, structs.GlobalConfig.TCPPortScanThreads)
+	// wg 只统计扫描任务，结果收集由独立 goroutine 完成，避免 Add/Done 跨多处导致的计数脆弱。
 	var wg sync.WaitGroup
+	done := make(chan struct{})
 
 	//接收结果
 	go func() {
@@ -113,16 +115,15 @@ func PortScanTCP(IPs []string, Ports string, NoPorts string, timeout int) []stri
 			} else {
 				IPPortCount[ip] = 1
 			}
-
-			wg.Done()
 		}
+		close(done)
 	}()
 
 	//多线程扫描
 	for i := 0; i < workers; i++ {
 		go func() {
 			for addr := range Addrs {
-				PortConnect(addr, results, timeout, &wg)
+				PortConnect(addr, results, timeout)
 				wg.Done()
 			}
 		}()
@@ -135,9 +136,10 @@ func PortScanTCP(IPs []string, Ports string, NoPorts string, timeout int) []stri
 			Addrs <- Addr{host, port}
 		}
 	}
-	wg.Wait()
-	close(Addrs)
-	close(results)
+	close(Addrs)   // 任务投递完毕，worker 取空后自然退出
+	wg.Wait()      // 所有扫描任务结束（PortConnect 已在返回前把命中结果写入 results）
+	close(results) // 通知结果收集 goroutine 收尾
+	<-done         // 等待 AliveAddress 完整写入
 	gologger.AuditTimeLogger("TCP端口扫描结束")
 
 	return AliveAddress
@@ -150,7 +152,7 @@ type Addr struct {
 
 var PortScan bool
 
-func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int, wg *sync.WaitGroup) {
+func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int) {
 	inblack := false
 	BackListLock.Lock()
 	_, inblack = BackList[addr.ip]
@@ -184,7 +186,6 @@ func PortConnect(addr Addr, respondingHosts chan<- string, adjustedTimeout int, 
 				AdditionalMsg: "TCP:" + strconv.Itoa(port),
 			})
 		}
-		wg.Add(1)
 		respondingHosts <- address
 	}
 }

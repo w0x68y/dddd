@@ -28,17 +28,15 @@ import (
 )
 
 func init() {
+	// 由运行时按需触发GC，避免每10秒强制 runtime.GC()+FreeOSMemory 带来的
+	// STW 停顿与反复向操作系统申请/归还内存，从而拖慢扫描吞吐。
+	debug.SetGCPercent(100)
 	go func() {
 		for {
-			GC()
-			time.Sleep(10 * time.Second)
+			time.Sleep(60 * time.Second)
+			debug.FreeOSMemory()
 		}
 	}()
-}
-
-func GC() {
-	runtime.GC()
-	debug.FreeOSMemory()
 }
 
 var version = "2.0.2"
