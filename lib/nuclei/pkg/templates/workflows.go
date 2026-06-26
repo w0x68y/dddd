@@ -73,8 +73,14 @@ func parseWorkflowTemplate(workflow *workflows.WorkflowTemplate, preprocessor Pr
 	for _, path := range paths {
 		template, err := Parse(path, preprocessor, options.Copy())
 		if err != nil {
-			gologger.Warning().Msgf("Could not parse workflow template %s: %v\n", path, err)
-			continue
+			template, err = EmbedParse(options.EmbedPocs, path, preprocessor, options.Copy())
+			if err != nil {
+				gologger.Warning().Msgf("Could not parse workflow template %s: %v\n", path, err)
+				continue
+			}
+			if options.Options.PocDebug {
+				gologger.Info().Msgf("[POC-DEBUG] workflow parsed embedded template=%s id=%s", path, template.ID)
+			}
 		}
 		if template.Executer == nil {
 			gologger.Warning().Msgf("Could not parse workflow template %s: no executer found\n", path)

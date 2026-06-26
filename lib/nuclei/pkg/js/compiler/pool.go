@@ -35,17 +35,25 @@ import (
 )
 
 var (
-	r                *require.Registry
-	lazyRegistryInit = sync.OnceFunc(func() {
+	r                    *require.Registry
+	lazyRegistryInitOnce sync.Once
+	lazySgInitOnce       sync.Once
+	sg                   sizedwaitgroup.SizedWaitGroup
+)
+
+func lazyRegistryInit() {
+	lazyRegistryInitOnce.Do(func() {
 		r = new(require.Registry) // this can be shared by multiple runtimes
 		// autoregister console node module with default printer it uses gologger backend
 		require.RegisterNativeModule(console.ModuleName, console.RequireWithPrinter(goconsole.NewGoConsolePrinter()))
 	})
-	sg         sizedwaitgroup.SizedWaitGroup
-	lazySgInit = sync.OnceFunc(func() {
+}
+
+func lazySgInit() {
+	lazySgInitOnce.Do(func() {
 		sg = sizedwaitgroup.New(JsVmConcurrency)
 	})
-)
+}
 
 func getRegistry() *require.Registry {
 	lazyRegistryInit()

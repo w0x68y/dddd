@@ -273,20 +273,14 @@ func prepare() {
 			gologger.Fatal().Msgf("输出参数(-o)必须为html拓展名或htm拓展名")
 		}
 	}
-	if (structs.GlobalConfig.Fofa || structs.GlobalConfig.Hunter) && structs.GlobalConfig.Quake {
-		structs.GlobalConfig.Fofa = false
-		structs.GlobalConfig.Quake = false
-		gologger.Warning().Msg("quake参数不兼容fofa或hunter参数")
-	}
-
 	if !strings.HasSuffix(strings.ToLower(structs.GlobalConfig.APIConfigFilePath), ".yaml") {
 		gologger.Fatal().Msg("API配置文件需要以 .yaml 为拓展名。")
 	}
 
 	structs.GlobalEmbedPocs = EmbedNucleiPocs
 
-	// 进行需要配置API的活动，没有找到API配置文件则直接进行生成
-	if structs.GlobalConfig.Fofa || structs.GlobalConfig.Hunter || structs.GlobalConfig.Quake || (structs.GlobalConfig.Subdomain && !structs.GlobalConfig.NoSubFinder) {
+	// 被动子域名枚举需要API配置，没有找到API配置文件则直接生成
+	if structs.GlobalConfig.Subdomain && !structs.GlobalConfig.NoSubFinder {
 		if !fileExists(structs.GlobalConfig.APIConfigFilePath) && !fileExists("config/api-config.yaml") {
 			gologger.Info().Msgf("未检测到API配置文件: %v", structs.GlobalConfig.APIConfigFilePath)
 			p, _ := splitPathAndFileName(structs.GlobalConfig.APIConfigFilePath)
@@ -353,22 +347,6 @@ func prepare() {
 	}
 	tmpTargets = utils.RemoveDuplicateElement(tmpTargets)
 
-	// 低感知模式
-	if structs.GlobalConfig.LowPerceptionMode {
-		if structs.GlobalConfig.Fofa && structs.GlobalConfig.Hunter {
-			gologger.Fatal().Msg("暂不支持在低感知模式下同时使用-fofa与-hunter参数，请使用-hunter参数")
-		}
-		if structs.GlobalConfig.Fofa {
-			gologger.Fatal().Msg("暂不支持基于Fofa的低感知模式，请使用-hunter参数。")
-		}
-		// 默认使用hunter fofa不支持
-		if !structs.GlobalConfig.Fofa && !structs.GlobalConfig.Hunter {
-			structs.GlobalConfig.Hunter = true
-		}
-		// 低感知模式下不进行目录探测
-		structs.GlobalConfig.NoDirSearch = true
-	}
-
 	structs.GlobalResultMap = make(map[string][]string)
 
 	// 过滤不支持输入
@@ -376,63 +354,50 @@ func prepare() {
 		if tg == "" {
 			continue
 		}
-		if structs.GlobalConfig.Hunter || structs.GlobalConfig.Fofa {
-			// 从网络空间搜索引擎中获取目标
-			if !strings.Contains(tg, "=") {
-				gologger.Error().Msgf("不支持的格式: %s", tg)
-				continue
-			}
-		} else if structs.GlobalConfig.Quake {
-			if !strings.Contains(tg, ":") {
-				gologger.Error().Msgf("不支持的格式: %s", tg)
-				continue
-			}
-		} else if !structs.GlobalConfig.Fofa && !structs.GlobalConfig.Hunter {
-			// 从本地文件获取目标
-			if utils.GetInputType(tg) == structs.TypeUnSupport {
-				if strings.HasPrefix(tg, "[") {
-					// 解析历史指纹
-					if strings.HasPrefix(tg, "[Finger") {
-						t := strings.Split(tg, " ")
-						uri := t[1]
-						tf := ""
+		// 从本地文件获取目标
+		if utils.GetInputType(tg) == structs.TypeUnSupport {
+			if strings.HasPrefix(tg, "[") {
+				// 解析历史指纹
+				if strings.HasPrefix(tg, "[Finger") {
+					t := strings.Split(tg, " ")
+					uri := t[1]
+					tf := ""
 
-						if strings.HasPrefix(uri, "http") {
-							tf = t[3]
-						} else {
-							tf = t[2]
-						}
-						if len(tf) <= 2 {
-							continue
-						}
-						tf = tf[1 : len(tf)-1]
-						fingers := strings.Split(tf, ",")
-						structs.GlobalResultMap[uri] = fingers
+					if strings.HasPrefix(uri, "http") {
+						tf = t[3]
+					} else {
+						tf = t[2]
+					}
+					if len(tf) <= 2 {
 						continue
 					}
-
-				} else if strings.HasPrefix(tg, "{") {
-					var in ddout.OutputMessage
-					err := json.Unmarshal([]byte(tg), &in)
-					if err == nil {
-						if in.Type == "Finger" {
-							structs.GlobalResultMap[in.URI] = in.Finger
-							continue
-						}
-						continue
-					}
-
-				} else if strings.HasSuffix(tg, " open") {
-					ipPort := strings.ReplaceAll(tg, " open", "")
-					if utils.IsIPPort(ipPort) {
-						structs.GlobalConfig.Targets = append(structs.GlobalConfig.Targets, ipPort)
-						continue
-					}
-
+					tf = tf[1 : len(tf)-1]
+					fingers := strings.Split(tf, ",")
+					structs.GlobalResultMap[uri] = fingers
+					continue
 				}
-				// gologger.Error().Msgf("不支持的格式: %s", tg)
-				continue
+
+			} else if strings.HasPrefix(tg, "{") {
+				var in ddout.OutputMessage
+				err := json.Unmarshal([]byte(tg), &in)
+				if err == nil {
+					if in.Type == "Finger" {
+						structs.GlobalResultMap[in.URI] = in.Finger
+						continue
+					}
+					continue
+				}
+
+			} else if strings.HasSuffix(tg, " open") {
+				ipPort := strings.ReplaceAll(tg, " open", "")
+				if utils.IsIPPort(ipPort) {
+					structs.GlobalConfig.Targets = append(structs.GlobalConfig.Targets, ipPort)
+					continue
+				}
+
 			}
+			// gologger.Error().Msgf("不支持的格式: %s", tg)
+			continue
 		}
 
 		structs.GlobalConfig.Targets = append(structs.GlobalConfig.Targets, tg)
@@ -615,18 +580,6 @@ func Flag() {
 		flagSet.StringVarP(&structs.GlobalConfig.HTTPProxyTestURL, "proxy-test-url", "ptu", "https://www.baidu.com", "测试HTTP代理的url，需要url返回200"),
 	)
 
-	flagSet.CreateGroup("uncover", "网络空间搜索引擎",
-		flagSet.BoolVar(&structs.GlobalConfig.Hunter, "hunter", false, "从hunter中获取资产,开启此选项后-t参数变更为需要在hunter中搜索的关键词"),
-		flagSet.IntVarP(&structs.GlobalConfig.HunterPageSize, "hunter-page-size", "hps", 100, "Hunter查询每页资产条数"),
-		flagSet.IntVarP(&structs.GlobalConfig.HunterMaxPageCount, "hunter-max-page-count", "hmpc", 10, "Hunter 最大查询页数"),
-		flagSet.BoolVarP(&structs.GlobalConfig.LowPerceptionMode, "low-perception-mode", "lpm", false, "Hunter低感知模式 | 从Hunter直接取响应判断指纹，直接进入漏洞扫描阶段"),
-		flagSet.BoolVar(&structs.GlobalConfig.OnlyIPPort, "oip", false, "从网络空间搜索引擎中以IP:Port的形式拉取资产，而不是Domain(IP):Port"),
-		flagSet.BoolVar(&structs.GlobalConfig.Fofa, "fofa", false, "从Fofa中获取资产,开启此选项后-t参数变更为需要在fofa中搜索的关键词"),
-		flagSet.IntVarP(&structs.GlobalConfig.FofaMaxCount, "fofa-max-count", "fmc", 100, "Fofa 查询资产条数 Max:10000"),
-		flagSet.BoolVar(&structs.GlobalConfig.Quake, "quake", false, "从Quake中获取资产,开启此选项后-t参数变更为需要在quake中搜索的关键词"),
-		flagSet.IntVarP(&structs.GlobalConfig.QuakeSize, "quake-max-count", "qmc", 100, "Quake 查询资产条数"),
-	)
-
 	flagSet.CreateGroup("output", "输出",
 		flagSet.StringVarP(&structs.GlobalConfig.OutputFile, "output", "o", "result.txt", "结果输出文件"),
 		flagSet.StringVarP(&structs.GlobalConfig.OutputType, "output-type", "ot", "text", "结果输出格式 text,json"),
@@ -636,6 +589,7 @@ func Flag() {
 	flagSet.CreateGroup("vuln-detect", "漏洞探测",
 		flagSet.BoolVar(&structs.GlobalConfig.NoPoc, "npoc", false, "关闭漏洞探测,只进行信息收集"),
 		flagSet.StringVarP(&structs.GlobalConfig.PocNameForSearch, "poc-name", "poc", "", "模糊匹配Poc名称"),
+		flagSet.BoolVar(&structs.GlobalConfig.PocDebug, "poc-debug", false, "开启POC调用调试日志，输出POC映射、模板加载和workflow解析信息"),
 		flagSet.IntVarP(&structs.GlobalConfig.GoPocThreads, "golang-poc-threads", "gpt", 50, "GoPoc运行线程"),
 		flagSet.BoolVarP(&structs.GlobalConfig.NoGolangPoc, "no-golang-poc", "ngp", false, "关闭Golang Poc探测"),
 		flagSet.BoolVarP(&structs.GlobalConfig.DisableGeneralPoc, "disable-general-poc", "dgp", false, "禁用无视指纹的漏洞映射"),
@@ -702,18 +656,11 @@ func flagAudit() {
 	gologger.AuditLogger("HTTPProxyTestURL: %v", structs.GlobalConfig.HTTPProxyTestURL)
 	gologger.AuditLogger("HTTPProxyTest: %v", structs.GlobalConfig.HTTPProxyTest)
 	gologger.AuditLogger("NoDirSearch: %v", structs.GlobalConfig.NoDirSearch)
-	gologger.AuditLogger("Hunter: %v", structs.GlobalConfig.Hunter)
-	gologger.AuditLogger("HunterPageSize: %v", structs.GlobalConfig.HunterPageSize)
-	gologger.AuditLogger("HunterMaxPageCount: %v", structs.GlobalConfig.HunterMaxPageCount)
-	gologger.AuditLogger("Fofa: %v", structs.GlobalConfig.Fofa)
-	gologger.AuditLogger("FofaMaxCount: %v", structs.GlobalConfig.FofaMaxCount)
-	gologger.AuditLogger("Quake: %v", structs.GlobalConfig.Quake)
-	gologger.AuditLogger("QuakeSize: %v", structs.GlobalConfig.QuakeSize)
-	gologger.AuditLogger("LowPerceptionMode: %v", structs.GlobalConfig.LowPerceptionMode)
 	gologger.AuditLogger("ReportName: %v", structs.GlobalConfig.ReportName)
 	gologger.AuditLogger("GoPocThreads: %v", structs.GlobalConfig.GoPocThreads)
 	gologger.AuditLogger("NoGolangPoc: %v", structs.GlobalConfig.NoGolangPoc)
 	gologger.AuditLogger("PocNameForSearch: %v", structs.GlobalConfig.PocNameForSearch)
+	gologger.AuditLogger("PocDebug: %v", structs.GlobalConfig.PocDebug)
 	gologger.AuditLogger("NoPoc: %v", structs.GlobalConfig.NoPoc)
 	gologger.AuditLogger("NoInteractsh: %v", structs.GlobalConfig.NoInteractsh)
 	gologger.AuditLogger("Audit: %v", gologger.Audit)

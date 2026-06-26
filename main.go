@@ -5,7 +5,6 @@ import (
 	"dddd/common/callnuclei"
 	"dddd/common/http"
 	"dddd/common/report"
-	"dddd/common/uncover"
 	"dddd/gopocs"
 	"dddd/lib/ddfinger"
 	"dddd/structs"
@@ -31,8 +30,6 @@ func workflow() {
 	var ips []string
 
 	defer gologger.Info().Msg(aurora.BrightGreen("Done!").String())
-
-	searchEngine()
 
 	for _, input := range structs.GlobalConfig.Targets {
 		inputType := utils.GetInputType(input)
@@ -202,6 +199,7 @@ func workflow() {
 			Proxy:             structs.GlobalConfig.HTTPProxy,
 			CallBack:          report.AddResultByResultEvent,
 			NameForSearch:     structs.GlobalConfig.PocNameForSearch,
+			PocDebug:          structs.GlobalConfig.PocDebug,
 			NoInteractsh:      structs.GlobalConfig.NoInteractsh,
 			Fs:                structs.GlobalEmbedPocs,
 			NP:                structs.GlobalConfig.NucleiTemplate,
@@ -258,6 +256,7 @@ func workflow() {
 			Proxy:             structs.GlobalConfig.HTTPProxy,
 			CallBack:          report.AddResultByResultEvent,
 			NameForSearch:     "",
+			PocDebug:          structs.GlobalConfig.PocDebug,
 			NoInteractsh:      structs.GlobalConfig.NoInteractsh,
 			Fs:                structs.GlobalEmbedPocs,
 			NP:                structs.GlobalConfig.NucleiTemplate,
@@ -278,36 +277,5 @@ func workflow() {
 
 	// 没有漏洞结果，删除生成的HTML
 	utils.DeleteReportWithNoResult()
-
-}
-
-func searchEngine() {
-	// 从Hunter中获取资产
-	if structs.GlobalConfig.Hunter && !structs.GlobalConfig.Fofa {
-		structs.GlobalConfig.Targets, _ = uncover.HunterSearch(structs.GlobalConfig.Targets)
-		return
-	}
-	// 从Fofa中获取资产
-	if structs.GlobalConfig.Fofa && !structs.GlobalConfig.Hunter {
-		structs.GlobalConfig.Targets = uncover.FOFASearch(structs.GlobalConfig.Targets)
-		return
-	}
-	// 从Hunter中获取资产后使用Fofa进行端口补充。
-	if structs.GlobalConfig.Fofa && structs.GlobalConfig.Hunter {
-		targets, tIPs := uncover.HunterSearch(structs.GlobalConfig.Targets)
-		var querys []string
-		for _, i := range tIPs {
-			querys = append(querys, "ip=\""+i+"\"")
-		}
-		querys = utils.RemoveDuplicateElement(querys)
-		structs.GlobalConfig.Targets = uncover.FOFASearch(querys)
-		structs.GlobalConfig.Targets = append(structs.GlobalConfig.Targets, targets...)
-		structs.GlobalConfig.Targets = utils.RemoveDuplicateElement(structs.GlobalConfig.Targets)
-		return
-	}
-	// 从Quake获取资产
-	if structs.GlobalConfig.Quake {
-		structs.GlobalConfig.Targets = uncover.QuakeSearch(structs.GlobalConfig.Targets)
-	}
 
 }

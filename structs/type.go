@@ -42,11 +42,6 @@ type Config struct {
 	HTTPProxy                  string
 	HTTPProxyTest              bool
 	HTTPProxyTestURL           string
-	Hunter                     bool
-	HunterPageSize             int
-	HunterMaxPageCount         int
-	Fofa                       bool
-	FofaMaxCount               int
 	NoDirSearch                bool
 	DirSearchYaml              string
 	NoGolangPoc                bool
@@ -61,14 +56,11 @@ type Config struct {
 	WebThreads                 int
 	WebTimeout                 int
 	PocNameForSearch           string
+	PocDebug                   bool
 	NoPoc                      bool
-	LowPerceptionMode          bool
-	Quake                      bool
-	QuakeSize                  int
 	NoICMPPing                 bool
 	TCPPing                    bool
 	NoInteractsh               bool
-	OnlyIPPort                 bool
 	OutputFile                 string
 	OutputType                 string
 	APIConfigFilePath          string

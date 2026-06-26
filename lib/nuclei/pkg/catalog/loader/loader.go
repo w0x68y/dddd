@@ -507,6 +507,7 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 	pocNames []string, excludeTags []string, enableSeverities []string,
 	fuzzyMatching bool) []*templates.Template {
 	loadedTemplatesName := make(map[string]struct{})
+	pocDebug := store.config.ExecutorOptions.Options.PocDebug
 
 	//includedTemplates, _ := store.config.Catalog.GetTemplatesPath(templatesList)
 	//// store.logErroredTemplates(errs)
@@ -521,11 +522,14 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 		}
 		enableSeveritiesOK = append(enableSeveritiesOK, v)
 	}
-	for _, v := range excludeTagsOK {
+	for _, v := range excludeTags {
 		if v == "" {
 			continue
 		}
 		excludeTagsOK = append(excludeTagsOK, v)
+	}
+	if pocDebug {
+		gologger.Info().Msgf("[POC-DEBUG] LoadTemplatesWithNames candidates=%d names=%s fuzzy=%v exclude_tags=%s severities=%s", len(templatesList), strings.Join(pocNames, ","), fuzzyMatching, strings.Join(excludeTagsOK, ","), strings.Join(enableSeveritiesOK, ","))
 	}
 
 	loadedTemplates := make([]*templates.Template, 0, len(templatesList))
@@ -533,6 +537,9 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 		_, fileName := splitPathAndFileName(templatePath)
 		_, ok := loadedTemplatesName[fileName]
 		if ok {
+			if pocDebug {
+				gologger.Info().Msgf("[POC-DEBUG] skip duplicate template filename=%s path=%s", fileName, templatePath)
+			}
 			continue
 		}
 		parsed, err := templates.Parse(templatePath, store.preprocessor, store.config.ExecutorOptions)
@@ -545,10 +552,11 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 			gologger.Warning().Msgf("Could not parse template %s: %s\n", templatePath, err)
 			continue
 		}
+		tags := parsed.Info.Tags.ToSlice()
 		if len(excludeTagsOK) > 0 {
 			isExclude := false
-			for _, tag := range parsed.Info.Tags.ToSlice() {
-				for _, t := range excludeTags {
+			for _, tag := range tags {
+				for _, t := range excludeTagsOK {
 					if t == tag {
 						isExclude = true
 						break
@@ -560,6 +568,9 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 			}
 			if isExclude {
 				// 排除指定tags的模板
+				if pocDebug {
+					gologger.Info().Msgf("[POC-DEBUG] skip excluded tags template=%s id=%s tags=%s", templatePath, parsed.ID, strings.Join(tags, ","))
+				}
 				continue
 			}
 		}
@@ -575,12 +586,13 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 			}
 			if isExclude {
 				// 不允许的严重程度
+				if pocDebug {
+					gologger.Info().Msgf("[POC-DEBUG] skip severity template=%s id=%s severity=%s", templatePath, parsed.ID, parsed.Info.SeverityHolder.Severity)
+				}
 				continue
 			}
 		}
 
-		loadedTemplatesName[fileName] = struct{}{}
-		tags := parsed.Info.Tags.ToSlice()
 		flag := false
 		for _, pocName := range pocNames {
 
@@ -618,9 +630,16 @@ func (store *Store) LoadTemplatesWithNames(f embed.FS, templatesList []string,
 			if len(parsed.RequestsHeadless) > 0 && !store.config.ExecutorOptions.Options.Headless {
 				gologger.Warning().Msgf("Headless flag is required for headless template %s\n", templatePath)
 			} else {
+				loadedTemplatesName[fileName] = struct{}{}
 				loadedTemplates = append(loadedTemplates, parsed)
+				if pocDebug {
+					gologger.Info().Msgf("[POC-DEBUG] loaded template=%s id=%s severity=%s tags=%s", templatePath, parsed.ID, parsed.Info.SeverityHolder.Severity, strings.Join(tags, ","))
+				}
 			}
 		}
+	}
+	if pocDebug {
+		gologger.Info().Msgf("[POC-DEBUG] LoadTemplatesWithNames loaded=%d", len(loadedTemplates))
 	}
 	return loadedTemplates
 }

@@ -436,12 +436,16 @@ func parseTemplate(data []byte, options protocols.ExecutorOptions) (*Template, e
 
 var (
 	jsCompiler     *compiler.Compiler
-	jsCompilerOnce = sync.OnceFunc(func() {
-		jsCompiler = compiler.New()
-	})
+	jsCompilerOnce sync.Once
 )
 
+func initJsCompiler() {
+	jsCompilerOnce.Do(func() {
+		jsCompiler = compiler.New()
+	})
+}
+
 func GetJsCompiler() *compiler.Compiler {
-	jsCompilerOnce()
+	initJsCompiler()
 	return jsCompiler
 }

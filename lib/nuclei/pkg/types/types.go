@@ -182,6 +182,8 @@ type Options struct {
 	DebugRequests bool
 	// DebugResponse mode allows debugging response for the engine
 	DebugResponse bool
+	// PocDebug outputs template mapping/loading details without dumping request/response bodies.
+	PocDebug bool
 	// DisableHTTPProbe disables http probing feature of input normalization
 	DisableHTTPProbe bool
 	// LeaveDefaultPorts skips normalization of default ports

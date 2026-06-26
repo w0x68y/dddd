@@ -43,42 +43,6 @@
 ./dddd -t test.com -sd
 ```
 
-##### 从Hunter开始扫描
-
-先运行`./dddd -hunter`或`./dddd -fofa`生成配置文件模板`api-config.yaml`，或通过`-acf`参数指定API配置文件
-
-打开配置文件写入Hunter API。配置完成后打开命令行
-
-```shell
-# 从Hunter中获取备案机构为 带带弟弟 的目标进入扫描 默认最大1000条
-./dddd -t '"icp.name="带带弟弟"' -hunter
-# 最大查询1页，一页100个。避免积分过度消耗
-./dddd -t '"icp.name="带带弟弟"' -hunter -htpc 1
-```
-
-攻防演练中通过Hunter导入企业备案资产方便快速占坑。
-
-##### 从Fofa开始扫描
-
-先运行`./dddd -hunter`或`./dddd -fofa`生成配置文件模板`api-config.yaml`，或通过`-acf`参数指定API配置文件
-
-打开配置文件写入fofa API。配置完成后打开命令行
-
-```shell
-./dddd -t "domain=\"baidu.com\"" -fofa (从fofa取100个baidu.com域名的目标)
-./dddd -t "domain=\"baidu.com\"" -fofa -ffmc 10000 (指定最大数量为10000 默认100)
-```
-
-##### 从Quake开始扫描
-
-先运行`./dddd -hunter`或`./dddd -fofa`生成配置文件模板`api-config.yaml`，或通过`-acf`参数指定API配置文件
-
-打开配置文件写入Quake./ API。配置完成后打开命令行
-
-```shell
-./dddd -t 'ip:"127.0.0.1"' -quake
-```
-
 ##### 多目标扫描
 
 在target.txt中写入你的目标，如
@@ -95,28 +59,6 @@ aaa.test.com
 
 ```
 ./dddd -t target.txt
-```
-
-当然dddd也支持多Hunter、Fofa语句，如在target.txt写下
-
-```
-ip="111.111.111.222"
-domain="bbbb.cc"
-icp.name="带带弟弟"
-```
-
-然后在命令行中敲下如下命令。dddd会批量从Hunter查询资产并送入对应流程。
-
-```
-./dddd -t target.txt -hunter
-```
-
-##### Hunter低感知模式
-
-配置好hunter api。
-
-```
-./dddd -t 'ip="xxx.xxx.xxx.xxx"' -lpm
 ```
 
 ##### 禁用漏洞探测
@@ -228,17 +170,6 @@ HTTP代理配置:
    -pt, -proxy-test              启动前测试HTTP代理 (default true)
    -ptu, -proxy-test-url string  测试HTTP代理的url，需要url返回200 (default "https://www.baidu.com")
 
-网络空间搜索引擎:
-   -hunter                            从hunter中获取资产,开启此选项后-t参数变更为需要在hunter中搜索的关键词
-   -hps, -hunter-page-size int        Hunter查询每页资产条数 (default 100)
-   -hmpc, -hunter-max-page-count int  Hunter 最大查询页数 (default 10)
-   -lpm, -low-perception-mode         Hunter低感知模式 | 从Hunter直接取响应判断指纹，直接进入漏洞扫描阶段
-   -oip                               从网络空间搜索引擎中以IP:Port的形式拉取资产，而不是Domain(IP):Port
-   -fofa                              从Fofa中获取资产,开启此选项后-t参数变更为需要在fofa中搜索的关键词
-   -fmc, -fofa-max-count int          Fofa 查询资产条数 Max:10000 (default 100)
-   -quake                             从Quake中获取资产,开启此选项后-t参数变更为需要在quake中搜索的关键词
-   -qmc, -quake-max-count int         Quake 查询资产条数 (default 100)
-
 输出:
    -o, -output string        结果输出文件 (default "result.txt")
    -ot, -output-type string  结果输出格式 text,json (default "text")
@@ -342,7 +273,7 @@ banner="123" // TCP banner 包含123
 banner!="123" // TCP banner中不含123
 ```
 
-各类规则支持与(&&)或(||)非(!)任意组合。可使用括号。与fofa搜索语法类似。
+各类规则支持与(&&)或(||)非(!)任意组合，可使用括号。
 
 ![image-20240403043346223](assets/image-20240403043346223.png)
 
@@ -365,11 +296,11 @@ Fortinet-sslvpn:
 
 ### API
 
-若有被动枚举子域名、请求fofa、hunter等需求。请在./config/api-config.yaml中配置API。
+若有被动枚举子域名需求，请在./config/api-config.yaml中配置API。
 
 当然您可以使用`-acf`参数指定您喜欢的路径。
 
-若没有api模板文件，请运行`./dddd -hunter`或`./dddd -fofa`生成模板。
+若没有api模板文件，运行带`-sd`且未关闭被动枚举的命令时会自动生成模板。
 
 
 
@@ -580,4 +511,3 @@ ADB未授权访问
 SMB共享目录信息留存
 
 ![image-20230817175546241](assets/image-20230817175546241.png)
-

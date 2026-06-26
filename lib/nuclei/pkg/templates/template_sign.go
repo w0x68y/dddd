@@ -23,13 +23,17 @@ import (
 // with these fields resolved
 
 var (
-	defaultOpts *types.Options = types.DefaultOptions()
-	initOnce                   = sync.OnceFunc(func() {
+	defaultOpts     *types.Options = types.DefaultOptions()
+	initOnce        sync.Once
+	ErrNotATemplate = errorutil.NewWithTag("signer", "given filePath is not a template")
+)
+
+func initProtocolsForSigner() {
+	initOnce.Do(func() {
 		_ = protocolstate.Init(defaultOpts)
 		_ = protocolinit.Init(defaultOpts)
 	})
-	ErrNotATemplate = errorutil.NewWithTag("signer", "given filePath is not a template")
-)
+}
 
 // UseOptionsForSigner sets the options to use for signing templates
 // instead of default options
@@ -59,7 +63,7 @@ func VerifyTemplateSignature(templatePath string) (bool, error) {
 func SignTemplate(templateSigner *signer.TemplateSigner, templatePath string) error {
 	// sign templates requires code files such as javsacript bash command to be included
 	// in template hence we first load template and append such resolved file references to content
-	initOnce()
+	initProtocolsForSigner()
 
 	// signing is only supported on yaml nuclei templates
 	if !strings.HasSuffix(templatePath, extensions.YAML) {

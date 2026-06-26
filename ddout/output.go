@@ -108,17 +108,6 @@ func (o *OutputMessage) ToString() (string, error) {
 		r = r[:len(r)-1] + "]"
 	} else if o.Type == "Domain-Bind" {
 		r = "[Domain-Bind] [" + o.Web.Status + "] " + o.URI
-	} else if o.Type == "Hunter" {
-		r = "[Hunter] "
-		if o.URI == "" {
-			r += o.Protocol + "://" + o.IP + ":" + o.Port
-		} else {
-			r += fmt.Sprintf("[%v] %s [%s] [%s]", o.Web.Status, o.URI, o.Web.Title, o.City)
-		}
-	} else if o.Type == "Fofa" {
-		r = o.Show
-	} else if o.Type == "Quake" {
-		r = "[Quake] " + o.Show
 	} else if o.Type == "Nuclei" {
 		r = "[Nuclei] " + o.Show
 	} else {

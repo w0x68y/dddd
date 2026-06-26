@@ -33,6 +33,7 @@ type NucleiParams struct {
 	Proxy             string
 	CallBack          func(result output.ResultEvent)
 	NameForSearch     string
+	PocDebug          bool
 	NoInteractsh      bool
 	Fs                embed.FS
 	NP                string
@@ -424,19 +425,6 @@ func readConfig(param NucleiParams) {
 	// 覆盖模板中设置的模糊模式(多个、单个)
 	options.FuzzingMode = ""
 
-	// 启用网络空间搜索引擎
-	options.Uncover = false
-	// 网络空间搜索引擎请求
-	options.UncoverQuery = nil
-	// 网络空间搜索引擎 fofa/shodan
-	options.UncoverEngine = nil
-	// uncover fields to return (ip,port,host)
-	options.UncoverField = "ip:port"
-	// uncover results to return
-	options.UncoverLimit = 100
-	// delay between uncover query requests in seconds (0 to disable)
-	options.UncoverRateLimit = 60
-
 	// 每秒最大请求量（默认：150）
 	options.RateLimit = 150
 	// 每分钟最大请求量
@@ -497,6 +485,8 @@ func readConfig(param NucleiParams) {
 	options.DebugRequests = false
 	// 显示所有响应
 	options.DebugResponse = false
+	// 输出POC映射、模板加载和workflow解析调试信息
+	options.PocDebug = param.PocDebug
 	// 使用http/socks5代理（逗号分隔，文件）
 	if param.Proxy == "" {
 		options.Proxy = nil

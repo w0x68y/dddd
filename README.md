@@ -18,10 +18,6 @@
 
 * 高效的子域名枚举/爆破，精准的泛解析过滤
 
-* Hunter、Fofa、Quake支持
-
-* Hunter 低感知模式
-
 * 低依赖，多系统开箱即用
 
 * 高效的HTML报表，包含漏洞请求响应
@@ -81,14 +77,6 @@ dddd存在三种文件输出
 
 
 ### 应用场景命令速查
-
-红队外网 (Hunter)
-
-`dddd -t 'icp.name="xxxx有限公司"' -hunter -oip`
-
-红队外网 (Hunter查询备案,Fofa补充端口）高效梳理资产
-
-`dddd -t 'icp.name="xxxx有限公司"' -hunter -fofa -oip`
 
 红队外网 (本机枚举子域名)
 

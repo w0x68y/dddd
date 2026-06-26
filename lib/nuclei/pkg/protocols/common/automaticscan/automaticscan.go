@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -61,6 +62,14 @@ func getTemplatePathByFS(f embed.FS) ([]string, error) {
 		}
 		return nil
 	})
+	sort.SliceStable(files, func(i, j int) bool {
+		iIsOfficial := strings.Contains(files[i], "/nuclei-templates/")
+		jIsOfficial := strings.Contains(files[j], "/nuclei-templates/")
+		if iIsOfficial != jIsOfficial {
+			return iIsOfficial
+		}
+		return files[i] < files[j]
+	})
 	return files, err
 }
 
@@ -112,6 +121,9 @@ func New(opts Options) (*Service, error) {
 		if !flag {
 			allTemplates = append(allTemplates, v)
 		}
+	}
+	if opts.ExecuterOpts.Options.PocDebug {
+		gologger.Info().Msgf("[POC-DEBUG] template candidates collected: disk_dirs=%d embedded=%d total=%d", len(defaultTemplatesDirectories), len(tps), len(allTemplates))
 	}
 
 	childExecuter := opts.Engine.ChildExecuter()
@@ -183,19 +195,41 @@ func (s *Service) executeWappalyzerTechDetection() error {
 func (s *Service) processWappalyzerInputPair(input *contextargs.MetaInput) {
 	var templatesList []*templates.Template
 	if s.opts.Options.PocNameForSearch != "" {
+		if s.opts.Options.PocDebug {
+			gologger.Info().Msgf("[POC-DEBUG] target=%s fuzzy_search=%q candidates=%d", input.Input, s.opts.Options.PocNameForSearch, len(s.allTemplates))
+		}
 		templatesList = s.store.LoadTemplatesWithNames(s.opts.EmbedPocs, s.allTemplates,
 			[]string{s.opts.Options.PocNameForSearch}, s.opts.Options.ExcludeTags, s.opts.EnableSeverities, true)
 	} else {
 		pocs, ok := s.opts.TargetAndPocsName[input.Input]
 		if !ok || len(pocs) == 0 {
+			if s.opts.Options.PocDebug {
+				gologger.Info().Msgf("[POC-DEBUG] target=%s mapped_pocs=0 skip nuclei template execution", input.Input)
+			}
 			return
 		}
 		uniquePocs := sliceutil.Dedupe(pocs)
+		if s.opts.Options.PocDebug {
+			gologger.Info().Msgf("[POC-DEBUG] target=%s mapped_pocs=%d names=%s", input.Input, len(uniquePocs), strings.Join(uniquePocs, ","))
+		}
 		templatesList = s.store.LoadTemplatesWithNames(s.opts.EmbedPocs, s.allTemplates, uniquePocs, s.opts.Options.ExcludeTags, s.opts.EnableSeverities, false)
+	}
+	if s.opts.Options.PocDebug {
+		gologger.Info().Msgf("[POC-DEBUG] target=%s loaded_templates=%d", input.Input, len(templatesList))
+		if len(templatesList) == 0 {
+			gologger.Warning().Msgf("[POC-DEBUG] target=%s has no runnable nuclei templates after filtering", input.Input)
+		}
 	}
 
 	// gologger.Info().Msgf("Executing tags (%v) for host %s (%d templates)", strings.Join(uniquePocs, ","), input, len(templatesList))
 	for _, t := range templatesList {
+		if s.opts.Options.PocDebug {
+			requests := 0
+			if t.Executer != nil {
+				requests = t.Executer.Requests()
+			}
+			gologger.Info().Msgf("[POC-DEBUG] execute target=%s template=%s id=%s severity=%s requests=%d", input.Input, t.Path, t.ID, t.Info.SeverityHolder.Severity, requests)
+		}
 		s.opts.Progress.AddToTotal(int64(t.Executer.Requests()))
 
 		if s.opts.Options.VerboseVerbose {

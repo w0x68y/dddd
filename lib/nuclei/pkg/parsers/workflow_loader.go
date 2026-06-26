@@ -1,6 +1,10 @@
 package parsers
 
 import (
+	"path/filepath"
+	"sort"
+	"strings"
+
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/nuclei/v3/pkg/catalog/config"
 	"github.com/projectdiscovery/nuclei/v3/pkg/catalog/loader/filter"
@@ -60,13 +64,29 @@ func (w *workflowLoader) GetTemplatePathsByTags(templateTags []string) []string 
 
 func (w *workflowLoader) GetTemplatePaths(templatesList []string, noValidate bool) []string {
 	includedTemplates, errs := w.options.Catalog.GetTemplatesPath(templatesList)
+	embeddedTemplates, embeddedMatches := w.getEmbeddedTemplatePaths(templatesList)
 	for template, err := range errs {
+		if embeddedPath, ok := embeddedMatches[template]; ok {
+			if w.options.Options.PocDebug {
+				gologger.Info().Msgf("[POC-DEBUG] workflow template=%s resolved from embedded path=%s", template, embeddedPath)
+			}
+			continue
+		}
 		gologger.Error().Msgf("Could not find template '%s': %s", template, err)
 	}
+	includedTemplates = append(includedTemplates, embeddedTemplates...)
 	templatesPathMap := w.pathFilter.Match(includedTemplates)
+	embeddedPathMap := make(map[string]struct{}, len(embeddedTemplates))
+	for _, templatePath := range embeddedTemplates {
+		embeddedPathMap[templatePath] = struct{}{}
+	}
 
 	loadedTemplates := make([]string, 0, len(templatesPathMap))
 	for templatePath := range templatesPathMap {
+		if _, ok := embeddedPathMap[templatePath]; ok {
+			loadedTemplates = append(loadedTemplates, templatePath)
+			continue
+		}
 		matched, err := LoadTemplate(templatePath, w.tagFilter, nil, w.options.Catalog)
 		if err != nil && !matched {
 			gologger.Warning().Msg(err.Error())
@@ -74,5 +94,61 @@ func (w *workflowLoader) GetTemplatePaths(templatesList []string, noValidate boo
 			loadedTemplates = append(loadedTemplates, templatePath)
 		}
 	}
+	sort.Strings(loadedTemplates)
+	if w.options.Options.PocDebug {
+		gologger.Info().Msgf("[POC-DEBUG] workflow requested=%s resolved=%d", strings.Join(templatesList, ","), len(loadedTemplates))
+	}
 	return loadedTemplates
+}
+
+func (w *workflowLoader) getEmbeddedTemplatePaths(templatesList []string) ([]string, map[string]string) {
+	matches := make(map[string]string)
+	seen := make(map[string]struct{})
+	paths := make([]string, 0, len(templatesList))
+
+	for _, template := range templatesList {
+		for _, candidate := range embeddedTemplateCandidates(template) {
+			file, err := w.options.EmbedPocs.Open(candidate)
+			if err != nil {
+				continue
+			}
+			_ = file.Close()
+			matches[template] = candidate
+			if _, ok := seen[candidate]; !ok {
+				seen[candidate] = struct{}{}
+				paths = append(paths, candidate)
+			}
+			break
+		}
+	}
+	sort.Strings(paths)
+	return paths, matches
+}
+
+func embeddedTemplateCandidates(template string) []string {
+	normalized := filepath.ToSlash(strings.TrimSpace(template))
+	normalized = strings.TrimPrefix(normalized, "./")
+	normalized = strings.TrimPrefix(normalized, "/")
+	if normalized == "" {
+		return nil
+	}
+
+	trimmedConfig := strings.TrimPrefix(normalized, "config/pocs/")
+	trimmedOfficial := strings.TrimPrefix(trimmedConfig, "nuclei-templates/")
+	candidates := []string{
+		"config/pocs/nuclei-templates/" + trimmedOfficial,
+		"config/pocs/" + trimmedConfig,
+		normalized,
+	}
+
+	seen := make(map[string]struct{}, len(candidates))
+	deduped := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		deduped = append(deduped, candidate)
+	}
+	return deduped
 }

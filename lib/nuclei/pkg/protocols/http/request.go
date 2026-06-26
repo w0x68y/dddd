@@ -717,14 +717,15 @@ func (request *Request) executeRequest(input *contextargs.Context, generatedRequ
 	// we only intend to log/save the final redirected response
 	// i.e why we have to use sync.Once to ensure it's only done once
 	var errx error
-	onceFunc := sync.OnceFunc(func() {
+	var once sync.Once
+	onceFunc := func() {
 		// if nuclei-project is enabled store the response if not previously done
 		if request.options.ProjectFile != nil && !fromCache {
 			if err := request.options.ProjectFile.Set(dumpedRequest, resp, respChain.Body().Bytes()); err != nil {
 				errx = errors.Wrap(err, "could not store in project file")
 			}
 		}
-	})
+	}
 
 	// evaluate responses continiously until first redirect request in reverse order
 	for respChain.Has() {
@@ -733,7 +734,7 @@ func (request *Request) executeRequest(input *contextargs.Context, generatedRequ
 			return errors.Wrap(err, "could not generate response chain")
 		}
 		// save response to projectfile
-		onceFunc()
+		once.Do(onceFunc)
 		matchedURL := input.MetaInput.Input
 		if generatedRequest.rawRequest != nil {
 			if generatedRequest.rawRequest.FullURL != "" {

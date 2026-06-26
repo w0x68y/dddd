@@ -1,1 +1,15 @@
 .DS_Store
+
+# 编译产物
+/dddd
+/dddd_*
+/dddd*.exe
+
+# 大体积模板目录（请单独分发，勿入库）
+/nuclei-templates/
+/common/config/pocs/nuclei-templates/
+
+# 运行时产物
+/result.txt
+/audit.log
+/masscan_tmp.txt
